@@ -88,3 +88,9 @@ $ python FindDWIOrientation.py
     (-1,0,0)      (0,-1,0)      (0,-1, 0)      (0, 0,-1)      (-1,0, 0)      ( 0,0,-1)      (-1, 0,0)      ( 0,-1,0)  
     ( 0,1,0)      (1, 0,0)      (0, 0,-1)      (0,-1, 0)      ( 0,0,-1)      (-1,0, 0)      ( 0,-1,0)      (-1, 0,0)  
 ```
+
+##Examples
+
+- To process typical mouse or rat MRI, the following parameters give good results: FindDWIOrientation.py --inputDWI input_dwi.nhdr --OutputFolder . --TempFolder temp --UseFullBrainMaskForTracto -d 4 -s .6 -p .25 -m 1 -l .5 
+
+
