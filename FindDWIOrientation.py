@@ -146,7 +146,7 @@ unuCmd=['/tools/bin_linux64/unu']
 CheckTool(unuCmd + ['--help'])
 dtiestimCmd=['/tools/bin_linux64/dtiestim']
 CheckTool(dtiestimCmd + ['--help'])
-BrainMaskCmd=['/NIRAL/work/akaiser/MaskComputationWithThresholding-build/MaskComputationWithThresholding'] # ['/rodent/bin_linux64/toolsMarch2013/MaskComputationWithThresholding']
+BrainMaskCmd=['/tools/bin_linux64/MaskComputationWithThresholding'] # ['/rodent/bin_linux64/toolsMarch2013/MaskComputationWithThresholding']
 CheckTool(BrainMaskCmd + ['--help'])
 dtiprocessCmd=['/tools/bin_linux64/dtiprocess']
 CheckTool(dtiprocessCmd + ['--help'])
@@ -156,7 +156,7 @@ OtsuThresholdCmd=['/tools/Slicer4/Slicer-4.2.2-1-linux-amd64/Slicer', '--launche
 CheckTool(OtsuThresholdCmd + ['--help'])
 tractoCmd=['/tools/Slicer4/Slicer-4.2.2-1-linux-amd64/Slicer', '--launcher-no-splash', '--launch', '/tools/Slicer4/Slicer-4.2.2-1-linux-amd64/lib/Slicer-4.2/cli-modules/TractographyLabelMapSeeding']
 CheckTool(tractoCmd + ['--help'])
-fiberstatsCmd=['/NIRAL/work/akaiser/Projects/dtiprocess-build/bin/fiberstats']
+fiberstatsCmd=['/tools/bin_linux64/fiberstats']
 CheckTool(fiberstatsCmd + ['--help'])
 MatlabCmd=['/tools/Matlab2011a/bin/matlab']
 CheckTool(MatlabCmd + ['-e']) # -e = env variables # -help returns 1
@@ -366,7 +366,10 @@ for line in open(DWI): # read all lines and replace line containing 'measurement
   elif 'data file' in line : # if not full path (not begin by '/'), need to give the full path to the date file(s)
     DataFile = line.split(' ')[2]
     if DataFile[0] != '/': # not full path
-      NewDataFile = os.path.abspath(os.path.dirname(DWI) + '/' + DataFile)
+      DWIPath = os.path.dirname(DWI)
+      if DWIPath == '' :
+        DWIPath = '.'
+      NewDataFile = os.path.abspath(DWIPath + '/' + DataFile)
     else: # full path: keep as is
       NewDataFile = DataFile
     CorrectedDWIfile.write( line.replace(DataFile,NewDataFile) )
