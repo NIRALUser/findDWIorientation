@@ -32,10 +32,12 @@ def DisplayUsage () :
   print '> -p --FAStopValue <float>           : Stopping value for tractography'
   print '> -m --MinimumFiberLength <float>    : Minimum fiber length for tractography'
   print '> -l --IntegrationStepLength <float> : Integration step length for tractography'
+  print '> -g --BrainMask <string>            : Directly give the brain mask if it has already been computed'
+  print '> -b --BaselineThreshold <int>       : Baseline threshold for estimation. If not specified calculated using an OTSU threshold on the baseline image. (default: -1)'
 
 # parse args into lists 'opts' and 'args'
 try:
-  opts, args = getopt.getopt(sys.argv[1:],'hi:o:t:nfd:s:p:m:l:',['help','inputDWI=','OutputFolder=','TempFolder=','NoBrainmask','UseFullBrainMaskForTracto','DownsampleImage=','FAStartValue=','FAStopValue=','MinimumFiberLength=','IntegrationStepLength'])
+  opts, args = getopt.getopt(sys.argv[1:],'hi:o:t:nfd:s:p:m:l:g:b:',['help','inputDWI=','OutputFolder=','TempFolder=','NoBrainmask','UseFullBrainMaskForTracto','DownsampleImage=','FAStartValue=','FAStopValue=','MinimumFiberLength=','IntegrationStepLength=','BrainMask=','BaselineThreshold='])
 except getopt.GetoptError:
   print '> Error parsing aruments'
   DisplayUsage()
@@ -60,6 +62,8 @@ FAStartValue = .3
 FAStopValue = .25
 MinimumFiberLength = 20
 IntegrationStepLength = .5
+BrainMask = ''
+BaselineThreshold = -1
 
 for opt, arg in opts:
   if opt in ("-h", "--help"):
@@ -91,11 +95,20 @@ for opt, arg in opts:
     MinimumFiberLength = float(arg)
   elif opt in ("-l", "--IntegrationStepLength"):
     IntegrationStepLength = float(arg)
+  elif opt in ("-g", "--BrainMask"):
+    BrainMask = arg
+  elif opt in ("-b", "--BaselineThreshold"):
+    BaselineThreshold = int(arg)
+
 
 if not DWI or not OutputFolder :
   print 'Please give an input DWI image (.nhdr or .nrrd) and an output folder.'
   DisplayUsage()
   sys.exit(1)
+
+if BrainMask and ComputeBrainmask :
+  ComputeBrainmask = 0
+  print '> Mask was specify. Will not recompute it. Full Brain will be used for tractography'
 
 if not TempFolder :
   TempFolder = OutputFolder
@@ -202,12 +215,24 @@ if DownsamplingFactor > 1 : # if 1 or below: no interest
       WhereIsList = line.replace('\n','').replace('vector','list').split(' ').index('list') - 1 # index of 'list' (or 'vector') in SizesTable (-1 because 'kinds:' is not in the table)
   SizesTable[WhereIsList] = int(SizesTable[WhereIsList]) * DownsamplingFactor # Multiply the nb of dirs so then we can divide the whole SizesTable
   SizesTable = [ str(int(x)/DownsamplingFactor) for x in SizesTable ] # divide whole list 
-
+  if BrainMask != '' :
+    # Get BrainMask size and divide it
+    for line in open(DWI):
+      if 'sizes' in line :
+        MaskSizesTable = line.replace('\n','').split(' ')[1:5] # remove \n from the array before splitting
+        MaskSizesTable = [ str(int(x)/DownsamplingFactor) for x in MaskSizesTable ] # divide whole list 
   # Downsample image
   ResampledDWI = TempFolder + '/' + os.path.split(DWI)[1].split('.')[0] + '_Downsampled' + str(DownsamplingFactor) + '.nhdr'
   DownsampleCmdTable = unuCmd + ['resample', '-i', DWI, '--size', SizesTable[0], SizesTable[1], SizesTable[2], SizesTable[3], '-o', ResampledDWI]
   if not os.path.isfile(ResampledDWI): # NO auto overwrite => if willing to overwrite, rm files
     ExecuteCommand(DownsampleCmdTable)
+  #if given mask, downsample it too!
+  if BrainMask != '' :
+      ResampledMask = TempFolder + '/' + os.path.split(BrainMask)[1].split('.')[0] + '_Downsampled' + str(DownsamplingFactor) + '.nrrd'
+      DownsampleMaskCmdTable = unuCmd + ['resample', '-i', BrainMask, '--size', MaskSizesTable[0], MaskSizesTable[1], MaskSizesTable[2], '-o', ResampledMask]
+      if not os.path.isfile(ResampledMask): # NO auto overwrite => if willing to overwrite, rm files
+        ExecuteCommand(DownsampleMaskCmdTable)
+      BrainMask = ResampledMask
 
   # Update new DWI header
   TempNhdr =  TempFolder + '/tempfile.nhdr'
@@ -255,7 +280,8 @@ for MF in MFTable:
   # Compute DTI and iDWI
   DTI = TempFolder + '/MF' + str(MFindex) + '_dti.nrrd'
   iDWI = TempFolder + '/MF' + str(MFindex) + '_idwi.nrrd'
-  ComputeDTICmdTable = dtiestimCmd + ['--dwi_image', MFDWI, '--tensor_output', DTI, '--idwi', iDWI, '-m', 'wls']
+  ComputeDTICmdTable = dtiestimCmd + ['--dwi_image', MFDWI, '--tensor_output', DTI, '--idwi', iDWI, '-m', 'wls', '-t' , str(BaselineThreshold) ]
+  print ComputeDTICmdTable
   if not os.path.isfile(DTI): # NO auto overwrite => if willing to overwrite, rm files
     ExecuteCommand(ComputeDTICmdTable)
 
@@ -272,6 +298,8 @@ for MF in MFTable:
   if not os.path.isfile(FA): # NO auto overwrite => if willing to overwrite, rm files
     ExecuteCommand(ComputeFACmdTable)
 
+  if BrainMask != '' :#A brain mask was given
+    ComputeBrainmask = 1
   if ComputeBrainmask :
     # Apply BrainMask to FA # !! Fa needs to be computed only once because same for all MFs
     FAmasked = TempFolder + '/famasked.nrrd'
@@ -287,7 +315,6 @@ for MF in MFTable:
     DTI = DTImasked
   else :
     FAmasked = FA
-
   # Compute mask by OTSU thresholding FA # !! Mask needs to be computed only once because same for all MFs
   if not ComputeBrainmask or not UseFullBrainMaskForTracto :
     Mask = TempFolder + '/mask.nrrd'
@@ -296,7 +323,6 @@ for MF in MFTable:
       ExecuteCommand(ComputeMaskCmdTable)
   else : # ComputeBrainmask and UseFullBrainMaskForTracto
     Mask = BrainMask
-
   # Compute Tractography #  
   Tracts = TempFolder + '/MF' + str(MFindex) + '_tracts.vtk'
   ComputeTractsCmdTable = tractoCmd + [DTI, Tracts, '--inputroi', Mask, '--seedspacing', '.5', '--clthreshold', str(FAStartValue), '--stoppingvalue', str(FAStopValue), '--stoppingcurvature', '0.7', '--integrationsteplength', str(IntegrationStepLength),'--minimumlength',str(MinimumFiberLength)] # if 'Mask' contains several labels: By default, the seeding region is the label 1
