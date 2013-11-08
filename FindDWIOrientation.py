@@ -247,6 +247,45 @@ if DownsamplingFactor > 1 : # if 1 or below: no interest
 else :
   UsedDWI = DWI
 
+
+DTI = TempFolder + '/original_dti.nrrd'
+iDWI = TempFolder + '/original_idwi.nrrd'
+ComputeDTICmdTable = dtiestimCmd + ['--dwi_image', UsedDWI, '--tensor_output', DTI, '--idwi', iDWI, '-m', 'wls', '-t' , str(BaselineThreshold) ]
+print ComputeDTICmdTable
+if not os.path.isfile(DTI): # NO auto overwrite => if willing to overwrite, rm files
+  ExecuteCommand(ComputeDTICmdTable)
+if ComputeBrainmask :
+  # Compute brain mask # !! Brain mask needs to be computed only once because same for all MFs
+  BrainMask = TempFolder + '/brainmask.nrrd'
+  ComputeBrainMaskCmdTable = BrainMaskCmd + [iDWI, '--output', BrainMask, '--autoThreshold', '-e', '0'] # -e 0 : 0 erosion
+  if not os.path.isfile(BrainMask): # NO auto overwrite => if willing to overwrite, rm files
+    ExecuteCommand(ComputeBrainMaskCmdTable)
+
+# Compute FA # !! Fa needs to be computed only once because same for all MFs
+FA = TempFolder + '/fa.nrrd'
+ComputeFACmdTable = dtiprocessCmd + ['--dti_image', DTI, '--fa_output', FA, '--scalar_float']
+if not os.path.isfile(FA): # NO auto overwrite => if willing to overwrite, rm files
+  ExecuteCommand(ComputeFACmdTable)
+
+if BrainMask != '' :#A brain mask was given
+  ComputeBrainmask = 1
+if ComputeBrainmask :
+  # Apply BrainMask to FA # !! Fa needs to be computed only once because same for all MFs
+  FAmasked = TempFolder + '/famasked.nrrd'
+  AplpyMasktoFACmdTable = ImageMathCmd + [FA, '-outfile', FAmasked, '-mul', BrainMask, '-type', 'float']
+  if not os.path.isfile(FAmasked): # NO auto overwrite => if willing to overwrite, rm files
+    ExecuteCommand(AplpyMasktoFACmdTable)
+else :
+  FAmasked = FA
+# Compute mask by OTSU thresholding FA # !! Mask needs to be computed only once because same for all MFs
+if not ComputeBrainmask or not UseFullBrainMaskForTracto :
+  Mask = TempFolder + '/mask.nrrd'
+  ComputeMaskCmdTable = OtsuThresholdCmd + [FAmasked, Mask, '--minimumObjectSize', '10', '--brightObjects'] # brightObjects= bright = fa = 1 # --minimumObjectSize 10 => to avoid 1-voxel artefacts
+  if not os.path.isfile(Mask): # NO auto overwrite => if willing to overwrite, rm files
+    ExecuteCommand(ComputeMaskCmdTable)
+else : # ComputeBrainmask and UseFullBrainMaskForTracto
+  Mask = BrainMask
+
 ## Compute Avg Fiber Length for all possible MFs
 time1=time.time()
 AvgFibLenTupleTable=[] # each element of the table is [MF,AvgFibLen]
@@ -279,33 +318,12 @@ for MF in MFTable:
 
   # Compute DTI and iDWI
   DTI = TempFolder + '/MF' + str(MFindex) + '_dti.nrrd'
-  iDWI = TempFolder + '/MF' + str(MFindex) + '_idwi.nrrd'
-  ComputeDTICmdTable = dtiestimCmd + ['--dwi_image', MFDWI, '--tensor_output', DTI, '--idwi', iDWI, '-m', 'wls', '-t' , str(BaselineThreshold) ]
+  ComputeDTICmdTable = dtiestimCmd + ['--dwi_image', MFDWI, '--tensor_output', DTI, '-m', 'wls', '-t' , str(BaselineThreshold) ]
   print ComputeDTICmdTable
   if not os.path.isfile(DTI): # NO auto overwrite => if willing to overwrite, rm files
     ExecuteCommand(ComputeDTICmdTable)
 
   if ComputeBrainmask :
-    # Compute brain mask # !! Brain mask needs to be computed only once because same for all MFs
-    BrainMask = TempFolder + '/brainmask.nrrd'
-    ComputeBrainMaskCmdTable = BrainMaskCmd + [iDWI, '--output', BrainMask, '--autoThreshold', '-e', '0'] # -e 0 : 0 erosion
-    if not os.path.isfile(BrainMask): # NO auto overwrite => if willing to overwrite, rm files
-      ExecuteCommand(ComputeBrainMaskCmdTable)
-
-  # Compute FA # !! Fa needs to be computed only once because same for all MFs
-  FA = TempFolder + '/fa.nrrd'
-  ComputeFACmdTable = dtiprocessCmd + ['--dti_image', DTI, '--fa_output', FA, '--scalar_float']
-  if not os.path.isfile(FA): # NO auto overwrite => if willing to overwrite, rm files
-    ExecuteCommand(ComputeFACmdTable)
-
-  if BrainMask != '' :#A brain mask was given
-    ComputeBrainmask = 1
-  if ComputeBrainmask :
-    # Apply BrainMask to FA # !! Fa needs to be computed only once because same for all MFs
-    FAmasked = TempFolder + '/famasked.nrrd'
-    AplpyMasktoFACmdTable = ImageMathCmd + [FA, '-outfile', FAmasked, '-mul', BrainMask, '-type', 'float']
-    if not os.path.isfile(FAmasked): # NO auto overwrite => if willing to overwrite, rm files
-      ExecuteCommand(AplpyMasktoFACmdTable)
     # Apply mask to DTI to avoid tracking outside of the brain
     (DTIfilename, extension) = os.path.splitext(DTI)
     DTImasked = DTIfilename + '_masked.nrrd'
@@ -313,16 +331,6 @@ for MF in MFTable:
     if not os.path.isfile(DTImasked): # NO auto overwrite => if willing to overwrite, rm files
       ExecuteCommand(ApplyMasktoDTICmdTable)
     DTI = DTImasked
-  else :
-    FAmasked = FA
-  # Compute mask by OTSU thresholding FA # !! Mask needs to be computed only once because same for all MFs
-  if not ComputeBrainmask or not UseFullBrainMaskForTracto :
-    Mask = TempFolder + '/mask.nrrd'
-    ComputeMaskCmdTable = OtsuThresholdCmd + [FAmasked, Mask, '--minimumObjectSize', '10', '--brightObjects'] # brightObjects= bright = fa = 1 # --minimumObjectSize 10 => to avoid 1-voxel artefacts
-    if not os.path.isfile(Mask): # NO auto overwrite => if willing to overwrite, rm files
-      ExecuteCommand(ComputeMaskCmdTable)
-  else : # ComputeBrainmask and UseFullBrainMaskForTracto
-    Mask = BrainMask
   # Compute Tractography #  
   Tracts = TempFolder + '/MF' + str(MFindex) + '_tracts.vtk'
   ComputeTractsCmdTable = tractoCmd + [DTI, Tracts, '--inputroi', Mask, '--seedspacing', '.5', '--clthreshold', str(FAStartValue), '--stoppingvalue', str(FAStopValue), '--stoppingcurvature', '0.7', '--integrationsteplength', str(IntegrationStepLength),'--minimumlength',str(MinimumFiberLength)] # if 'Mask' contains several labels: By default, the seeding region is the label 1
