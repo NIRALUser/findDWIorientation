@@ -16,12 +16,15 @@ import getopt # .getopt() : to parse the cmd line args
 # TempFolder
 # /NIRAL/work/akaiser/MF_FAS_Sulik2
 
+#############Version number#################
+versionNumber = 1.1
 ############################################
 #             Args & Usage                 #
 ############################################
 def DisplayUsage () :
   print '> USAGE : $ FindDWIOrientation.py -i <DWI> -o <OutputFolder> [Options]'
   print '> -h --help                          : Display usage'
+  print '> -v --version                       : Display version'
   print '> -i --inputDWI <string>             : Input DWI image (.nhdr or .nrrd)'
   print '> -o --OutputFolder <string>         : Output folder'
   print '> -t --TempFolder <string>           : Folder for temporary files (if no TempFolder given, it will be set to the OutputFolder)'
@@ -33,11 +36,12 @@ def DisplayUsage () :
   print '> -m --MinimumFiberLength <float>    : Minimum fiber length for tractography'
   print '> -l --IntegrationStepLength <float> : Integration step length for tractography'
   print '> -g --BrainMask <string>            : Directly give the brain mask if it has already been computed'
-  print '> -b --BaselineThreshold <int>       : Baseline threshold for estimation. If not specified calculated using an OTSU threshold on the baseline image. (default: -1)'
+  print '> -b --BaselineThreshold <int>       : Baseline threshold for estimation. If not specified calculated'
+  print '> -r --inputroi <string>             : ROI image to tract from. If not specified calculated using the whole brain mask'
 
 # parse args into lists 'opts' and 'args'
 try:
-  opts, args = getopt.getopt(sys.argv[1:],'hi:o:t:nfd:s:p:m:l:g:b:',['help','inputDWI=','OutputFolder=','TempFolder=','NoBrainmask','UseFullBrainMaskForTracto','DownsampleImage=','FAStartValue=','FAStopValue=','MinimumFiberLength=','IntegrationStepLength=','BrainMask=','BaselineThreshold='])
+  opts, args = getopt.getopt(sys.argv[1:],'hi:o:t:nfd:s:p:m:l:g:b:r:v',['help','inputDWI=','OutputFolder=','TempFolder=','NoBrainmask','UseFullBrainMaskForTracto','DownsampleImage=','FAStartValue=','FAStopValue=','MinimumFiberLength=','IntegrationStepLength=','BrainMask=','BaselineThreshold=','inputroi=','version'])
 except getopt.GetoptError:
   print '> Error parsing aruments'
   DisplayUsage()
@@ -64,10 +68,14 @@ MinimumFiberLength = 20
 IntegrationStepLength = .5
 BrainMask = ''
 BaselineThreshold = -1
+inputroi = ''
 
 for opt, arg in opts:
   if opt in ("-h", "--help"):
     DisplayUsage()
+    sys.exit(0)
+  elif opt in ("-v", "--version"):
+    print 'version '+str(versionNumber)
     sys.exit(0)
   elif opt in ("-i", "--inputDWI"):
     DWI = arg
@@ -99,6 +107,8 @@ for opt, arg in opts:
     BrainMask = arg
   elif opt in ("-b", "--BaselineThreshold"):
     BaselineThreshold = int(arg)
+  elif opt in ("-r", "--inputroi"):
+    inputroi = arg
 
 
 if not DWI or not OutputFolder :
@@ -332,8 +342,10 @@ for MF in MFTable:
       ExecuteCommand(ApplyMasktoDTICmdTable)
     DTI = DTImasked
   # Compute Tractography #  
+  if inputroi == '' :
+    inputroi = Mask
   Tracts = TempFolder + '/MF' + str(MFindex) + '_tracts.vtk'
-  ComputeTractsCmdTable = tractoCmd + [DTI, Tracts, '--inputroi', Mask, '--seedspacing', '.5', '--clthreshold', str(FAStartValue), '--stoppingvalue', str(FAStopValue), '--stoppingcurvature', '0.7', '--integrationsteplength', str(IntegrationStepLength),'--minimumlength',str(MinimumFiberLength)] # if 'Mask' contains several labels: By default, the seeding region is the label 1
+  ComputeTractsCmdTable = tractoCmd + [DTI, Tracts, '--inputroi', inputroi, '--seedspacing', '.5', '--clthreshold', str(FAStartValue), '--stoppingvalue', str(FAStopValue), '--stoppingcurvature', '0.7', '--integrationsteplength', str(IntegrationStepLength),'--minimumlength',str(MinimumFiberLength)] # if 'Mask' contains several labels: By default, the seeding region is the label 1
   if not os.path.isfile(Tracts): # NO auto overwrite => if willing to overwrite, rm files
     ExecuteCommand(ComputeTractsCmdTable)
 
