@@ -6,13 +6,21 @@ The only file that will be created in the output folder is the final MF correcte
 ##Usage
 ```
 USAGE : $ FindDWIOrientation.py -i <DWI> -o <OutputFolder> [Options]  
--h --help                       : Display usage  
--i --inputDWI <string>          : Input DWI image (.nhdr or .nrrd)  
--o --OutputFolder <string>      : Output folder  
--t --TempFolder <string>        : Folder for temporary files (if no TempFolder given, it will be set to the OutputFolder)  
--n --NoBrainmask                : If the image has not much noise, you do not need the brain mask  
--f --UseFullBrainMaskForTracto  : Compute tractography in the full brain  
--d --DownsampleImage <int>      : Downsample the input image to have faster processing  
+-h --help : Display usage
+-v --version : Display version
+-i --inputDWI <string> : Input DWI image (.nhdr or .nrrd)
+-o --OutputFolder <string> : Output folder
+-t --TempFolder <string> : Folder for temporary files (if no TempFolder given, it will be set to the OutputFolder)
+-n --NoBrainmask : If the image has not much noise, you do not need the brain mask
+-f --UseFullBrainMaskForTracto : Compute tractography in the full brain
+-d --DownsampleImage <int> : Downsample the input image to have faster processing
+-s --FAStartValue <float> : Start value for tractography
+-p --FAStopValue <float> : Stopping value for tractography
+-m --MinimumFiberLength <float> : Minimum fiber length for tractography
+-l --IntegrationStepLength <float> : Integration step length for tractography
+-g --BrainMask <string> : Directly give the brain mask if it has already been computed
+-b --BaselineThreshold <int> : Baseline threshold for estimation. If not specified calculated
+-r --inputroi <string> : ROI image to tract from. If not specified calculated using the whole brain mask
 ```
 `--NoBrainmask`: A brainmask will be computed (step 3) and applied (step 5) to remove noise outside the brain.  
 This brainmask computation can fail for some images, so if your image does not have a lot of noise you can use this option.  
