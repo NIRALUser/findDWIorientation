@@ -260,7 +260,7 @@ else :
 
 DTI = TempFolder + '/original_dti.nrrd'
 iDWI = TempFolder + '/original_idwi.nrrd'
-ComputeDTICmdTable = dtiestimCmd + ['--dwi_image', UsedDWI, '--tensor_output', DTI, '--idwi', iDWI, '-m', 'wls', '-t' , str(BaselineThreshold) ]
+ComputeDTICmdTable = dtiestimCmd + ['--dwi_image', UsedDWI, '--tensor_output', DTI, '--idwi', iDWI, '-m', 'wls', '-t' , str(BaselineThreshold) , '--shiftNeg' ]
 print ComputeDTICmdTable
 if not os.path.isfile(DTI): # NO auto overwrite => if willing to overwrite, rm files
   ExecuteCommand(ComputeDTICmdTable)
@@ -273,7 +273,7 @@ if ComputeBrainmask :
 
 # Compute FA # !! Fa needs to be computed only once because same for all MFs
 FA = TempFolder + '/fa.nrrd'
-ComputeFACmdTable = dtiprocessCmd + ['--dti_image', DTI, '--fa_output', FA, '--scalar_float']
+ComputeFACmdTable = dtiprocessCmd + ['--dti_image', DTI, '--fa_output', FA]
 if not os.path.isfile(FA): # NO auto overwrite => if willing to overwrite, rm files
   ExecuteCommand(ComputeFACmdTable)
 
