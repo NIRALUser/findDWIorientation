@@ -17,7 +17,7 @@ import getopt # .getopt() : to parse the cmd line args
 # /NIRAL/work/akaiser/MF_FAS_Sulik2
 
 #############Version number#################
-versionNumber = 1.1
+versionNumber = 1.2
 ############################################
 #             Args & Usage                 #
 ############################################
